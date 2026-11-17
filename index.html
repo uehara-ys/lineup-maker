@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>スタメン布陣図メーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1220; --panel:#181c2e; --panel2:#20253b; --line:#2d3350; --text:#e8eaf3; --muted:#9097b3; --accent:#3b82f6; --accent2:#2563eb;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans JP",system-ui,sans-serif;font-size:14px}
+  header.top{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header.top h1{font-size:17px;margin:0;font-weight:900;letter-spacing:.02em}
+  header.top .sub{color:var(--muted);font-size:12px}
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;padding:18px;max-width:1500px;margin:0 auto}
+  @media (max-width:980px){.wrap{grid-template-columns:1fr}}
+  .stage{position:sticky;top:12px;align-self:start}
+  @media (max-width:980px){.stage{position:static}}
+  canvas#main{width:100%;max-width:900px;aspect-ratio:1350/900;display:block;margin:0 auto;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);touch-action:none;cursor:grab}
+  canvas#main.dragging{cursor:grabbing}
+  .hint{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
+  .actions{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+  .panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:700;letter-spacing:.06em}
+  label.f{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  input[type=text],select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font:inherit;outline:none}
+  input[type=text]:focus,select:focus{border-color:var(--accent)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .colors{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+  .colors label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  input[type=color]{width:34px;height:26px;border:1px solid var(--line);border-radius:6px;background:none;padding:0;cursor:pointer}
+  button{font:inherit;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:700}
+  button:hover{border-color:#4a5280}
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:var(--accent2)}
+  button.sm{padding:4px 8px;font-size:12px}
+  button.ghost{background:transparent}
+  .fmt{display:flex;flex-wrap:wrap;gap:6px}
+  .fmt button{padding:6px 10px;font-family:Oswald,sans-serif;font-weight:500;letter-spacing:.03em}
+  .fmt button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .players{display:flex;flex-direction:column;gap:8px}
+  .pl{display:grid;grid-template-columns:44px 56px 1fr auto;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px}
+  .pl.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .pos{font-family:Oswald,sans-serif;font-size:13px;text-align:center;color:#c9d2ff;background:#2a3157;border-radius:6px;padding:4px 0}
+  .thumb{width:56px;height:61px;border-radius:6px;background:#11152a center/cover no-repeat;border:1px dashed #3a4166;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:10px;text-align:center;line-height:1.2;overflow:hidden}
+  .thumb.has{border-style:solid}
+  .pl .fields{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .pl .fields input{padding:6px 8px}
+  .pl .fields input.note{font-size:12px;padding:4px 8px}
+  .pl .btns{display:flex;flex-direction:column;gap:3px}
+  .pl .btns button{padding:2px 7px;font-size:11px;line-height:1.3}
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(5,7,15,.78);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal.open{display:flex}
+  .dlg{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;width:min(440px,100%);max-height:calc(100vh - 32px);overflow:auto}
+  .dlg h3{margin:0 0 10px;font-size:15px}
+  #cropCv{width:100%;aspect-ratio:1/1;display:block;background:#0a0c16;border-radius:10px;touch-action:none;cursor:move}
+  .zoomrow{display:flex;align-items:center;gap:10px;margin:12px 0}
+  .zoomrow input{flex:1}
+  .dlg .btnrow{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+  #previewImg{width:100%;border-radius:8px;display:block}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111528;border:1px solid var(--line);padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
+  .toast.show{opacity:1}
+  .dropzone-over{outline:2px dashed var(--accent);outline-offset:4px}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>スタメン布陣図メーカー</h1>
+  <span class="sub">選手名を入れて、顔写真をクロップ、システムを選ぶだけ。図の上の選手はドラッグで動かせます。</span>
+</header>
+
+<div class="wrap">
+  <div class="stage">
+    <canvas id="main" width="1350" height="900"></canvas>
+    <div class="hint">選手カードをドラッグで位置調整 ／ カードをクリックすると右のリストで選択されます</div>
+    <div class="actions">
+      <button class="primary" id="btnSave">PNGで保存</button>
+      <button id="btnResetPos">配置をリセット</button>
+      <button id="btnClear" class="ghost">すべてクリア</button>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="panel">
+      <h2>システム</h2>
+      <div class="fmt" id="fmtBtns"></div>
+      <label class="f">出力サイズ</label>
+      <select id="sizeSel"></select>
+      <div class="zoomrow" style="margin:10px 0 0">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap">選手カードの大きさ</span>
+        <input type="range" id="cardScale" min="0.8" max="1.5" step="0.01">
+        <span id="cardScaleVal" style="font-size:12px;color:var(--muted);width:38px;text-align:right"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>テキスト</h2>
+      <div class="row2">
+        <div><label class="f">左上ロゴ</label><input type="text" id="tBrand" placeholder="例: STARTING XI"></div>
+        <div><label class="f">右上（システム表記）</label><input type="text" id="tSystem" placeholder="空欄なら自動"></div>
+      </div>
+      <label class="f">左上ロゴ画像（PNG・透過OK／設定するとロゴ文字の代わりに表示）</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div id="logoThumb" style="width:96px;height:40px;border:1px dashed var(--line);border-radius:6px;background:#11152a center/contain no-repeat;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)">未設定</div>
+        <button class="sm" id="logoPick">画像を選択</button>
+        <button class="sm ghost" id="logoClear">外す</button>
+      </div>
+      <div class="zoomrow" style="margin:8px 0 0">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap">ロゴの大きさ</span>
+        <input type="range" id="logoSize" min="30" max="200" step="1" value="70">
+      </div>
+      <div class="zoomrow" style="margin:8px 0 0">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap">表示方法</span>
+        <select id="logoStyle">
+          <option value="plate">白い台座の上に表示（黒いロゴ向け）</option>
+          <option value="white">白一色にする（白抜き）</option>
+          <option value="plain">そのまま</option>
+        </select>
+      </div>
+      <input type="hidden" id="tInfo">
+      <label class="f">下段テキスト（日時・会場・大会・対戦カードなど）</label>
+      <input type="text" id="tMatch" placeholder="11.14 国際親善試合 日本代表 VS ブラジル代表（シンガポール）">
+      <select id="themeSel" hidden></select>
+      <label class="f">背景の柄</label>
+      <select id="bgStyle">
+        <option value="hex">ヘックス（六角形）＋差し色</option>
+        <option value="slash">斜めライン＋差し色</option>
+        <option value="dots">ドット</option>
+        <option value="lights">スタジアム照明</option>
+        <option value="net">ゴールネット</option>
+        <option value="poly">ポリゴン</option>
+        <option value="bigtext">大きなシステム表記</option>
+        <option value="plain">柄なし（グラデーションのみ）</option>
+        <option value="arc">円弧（最初のデザイン）</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:8px;cursor:pointer">
+        <input type="checkbox" id="showAccent"> 左右に差し色のアクセント線を入れる（ヘックス・斜めライン）
+      </label>
+      <label class="f">配色プリセット</label>
+      <div id="presets" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      <div class="colors">
+        <label>差し色 <input type="color" id="cSub" value="#e60033"></label>
+        <label>背景 <input type="color" id="cBg" value="#1b2160"></label>
+        <label>カード <input type="color" id="cCard" value="#1e2a6e"></label>
+        <label>芝 <input type="color" id="cGrass" value="#3f9a2c"></label>
+        <label>文字アクセント <input type="color" id="cAccent" value="#ffffff"></label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>選手（11人）</h2>
+      <div class="players" id="players"></div>
+      <div style="color:var(--muted);font-size:11px;margin-top:8px;line-height:1.6">
+        写真枠をクリックして画像を選択（ドラッグ＆ドロップも可）。「補足」は名前の下に小さく表示されます（例: 渡辺 剛）。↑↓で並び＝ポジション割り当てを入れ替えられます。<br>
+        名前欄はストック済みの選手名で候補が出ます。候補を選ぶと写真も自動で入ります。
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="sm" id="libSaveAll">写真のある11人をまとめてストック</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 style="display:flex;justify-content:space-between;align-items:center">選手ストック <span id="libStatus" style="font-weight:500;letter-spacing:0;font-size:11px"></span></h2>
+      <input type="text" id="libSearch" placeholder="名前で検索">
+      <div id="libList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;margin-top:10px;max-height:360px;overflow:auto"></div>
+      <div style="color:var(--muted);font-size:11px;margin-top:8px;line-height:1.6">
+        クリックすると、選択中の枠（なければ空いている枠）に名前と写真が入ります。写真をクロップして「決定」すると、名前が入っていれば自動でストックされます。同じ名前は上書きされます。ストックは使う人ごとに別々で、他の人には見えません。
+      </div>
+    </div>
+    <datalist id="libNames"></datalist>
+  </div>
+</div>
+
+<!-- crop modal -->
+<div class="modal" id="cropModal">
+  <div class="dlg">
+    <h3 id="cropTitle">顔写真をクロップ</h3>
+    <canvas id="cropCv" width="600" height="600"></canvas>
+    <div class="zoomrow">
+      <span style="font-size:12px;color:var(--muted)">縮小</span>
+      <input type="range" id="zoom" min="0" max="1" step="0.001" value="0">
+      <span style="font-size:12px;color:var(--muted)">拡大</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">ドラッグで位置、スライダー/ホイール/ピンチで拡大縮小。明るい枠の中が使われます。</div>
+    <div class="btnrow">
+      <button id="cropRemove" class="ghost">写真を外す</button>
+      <button id="cropChange">別の画像</button>
+      <button id="cropCancel">キャンセル</button>
+      <button id="cropOk" class="primary">決定</button>
+    </div>
+  </div>
+</div>
+
+<!-- preview modal (fallback save) -->
+<div class="modal" id="prevModal">
+  <div class="dlg" style="width:min(640px,100%)">
+    <h3>画像を保存</h3>
+    <img id="previewImg" alt="布陣図">
+    <div style="font-size:12px;color:var(--muted);margin:10px 0">画像を右クリック（スマホは長押し）して保存してください。</div>
+    <div class="btnrow"><button id="prevClose">閉じる</button></div>
+  </div>
+</div>
+
+<input type="file" id="fileIn" accept="image/*" hidden>
+<input type="file" id="logoIn" accept="image/png,image/*" hidden>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+// ---------- output sizes ----------
+const LAYOUTS = {
+  wide:   {label:"900×600（横長）",    W:1350, H:900,  S:.8, out:[900,600],
+           pt:{top:62, bottom:812, wTop:820, wBot:1320}, footerY:816,
+           map:(fx,fy)=>{ const t = 10 + ANCHOR_Y*S, b = 816 + 2 - (PLATE_OFF + PL_H - ANCHOR_Y)*S; return [1350/2 + (fx-.5)*1120, t + (fy-.09)*(b-t)/(.775-.09)]; }},
+  square: {label:"1080×1080（正方形）", W:1080, H:1080, S:.85, out:[1080,1080],
+           pt:{top:70, bottom:965, wTop:700, wBot:1200}, footerY:982,
+           map:(fx,fy)=>{ const t = Math.max(97, 10 + ANCHOR_Y*S), b = Math.min(880, 982 + 2 - (PLATE_OFF + PL_H - ANCHOR_Y)*S); return [fx*1080, t + (fy-.09)*(b-t)/(.775-.09)]; }},
+};
+let W = 1350, H = 900, S = .8, LAYOUT = LAYOUTS.wide;
+// ---- card geometry (canvas px) ----
+const PH_W = 124, PH_H = 134;           // photo
+const PL_W = 158, PL_H = 44;            // name plate
+const PLATE_OFF = PH_H - 14;            // plate top relative to photo top
+// card anchor = photo center x, photo top + 75
+const ANCHOR_Y = 75;
+
+// formation slots: order GK, DF(L→R), MF, FW. coords normalized to canvas (x,y = photo/plate center).
+const FORMATIONS = {
+  "4-2-3-1": [["GK",.5,.775],["LSB",.12,.53],["CB",.36,.64],["CB",.64,.64],["RSB",.88,.53],["DMF",.37,.455],["DMF",.63,.455],["LWG",.2,.215],["OMF",.5,.275],["RWG",.8,.215],["CF",.5,.09]],
+  "4-3-3":   [["GK",.5,.775],["LSB",.12,.53],["CB",.36,.64],["CB",.64,.64],["RSB",.88,.53],["CMF",.27,.30],["ACM",.5,.45],["CMF",.73,.30],["LWG",.17,.125],["CF",.5,.09],["RWG",.83,.125]],
+  "4-4-2":   [["GK",.5,.775],["LSB",.12,.53],["CB",.36,.64],["CB",.64,.64],["RSB",.88,.53],["LSH",.12,.29],["CMF",.37,.36],["CMF",.63,.36],["RSH",.88,.29],["FW",.36,.1],["FW",.64,.1]],
+  "4-1-4-1": [["GK",.5,.775],["LSB",.12,.53],["CB",.36,.64],["CB",.64,.64],["RSB",.88,.53],["ACM",.5,.455],["LSH",.12,.245],["CMF",.37,.265],["CMF",.63,.265],["RSH",.88,.245],["CF",.5,.09]],
+  "4-4-2◆":  [["GK",.5,.775],["LSB",.12,.53],["CB",.36,.64],["CB",.64,.64],["RSB",.88,.53],["ACM",.5,.45],["CMF",.22,.34],["CMF",.78,.34],["OMF",.5,.26],["FW",.33,.09],["FW",.67,.09]],
+  "3-4-2-1": [["GK",.5,.775],["CB",.22,.565],["CB",.5,.585],["CB",.78,.565],["LWB",.1,.38],["DMF",.37,.40],["DMF",.63,.40],["RWB",.9,.38],["シャドー",.28,.21],["シャドー",.72,.21],["CF",.5,.09]],
+  "3-4-3":   [["GK",.5,.775],["CB",.22,.565],["CB",.5,.585],["CB",.78,.565],["LWB",.1,.36],["CMF",.37,.40],["CMF",.63,.40],["RWB",.9,.36],["LWG",.2,.13],["CF",.5,.09],["RWG",.8,.13]],
+  "3-5-2":   [["GK",.5,.775],["CB",.22,.565],["CB",.5,.585],["CB",.78,.565],["LWB",.1,.38],["ACM",.5,.40],["RWB",.9,.38],["CMF",.27,.28],["CMF",.73,.28],["FW",.38,.09],["FW",.62,.09]],
+  "5-3-2":   [["GK",.5,.775],["LWB",.08,.47],["CB",.29,.565],["CB",.5,.585],["CB",.71,.565],["RWB",.92,.47],["CMF",.25,.29],["ACM",.5,.40],["CMF",.75,.29],["FW",.36,.09],["FW",.64,.09]],
+  "5-4-1":   [["GK",.5,.775],["LWB",.08,.47],["CB",.29,.565],["CB",.5,.585],["CB",.71,.565],["RWB",.92,.47],["LSH",.14,.26],["CMF",.38,.33],["CMF",.62,.33],["RSH",.86,.26],["CF",.5,.09]],
+};
+const FMT_KEYS = Object.keys(FORMATIONS);
+
+// ---------- themes ----------
+const THEMES = {
+  hex:     {label:"ヘックス", pt:{top:80, bottom:925, wTop:1000, wBot:1000},
+            colors:{bg:"#16181f", card:"#2b2f3a", grass:"#2f8a3c", accent:"#ffffff", sub:"#e60033"}},
+  stripe:  {label:"ストライプ", pt:{top:80, bottom:925, wTop:1000, wBot:1000},
+            colors:{bg:"#0d2a3a", card:"#173d52", grass:"#3a9440", accent:"#ffffff", sub:"#f5b800"}},
+  classic: {label:"クラシック（遠近）", pt:{top:70, bottom:920, wTop:700, wBot:1180},
+            colors:{bg:"#1a52c9", card:"#0f2f7a", grass:"#3f9a2c", accent:"#ffffff", sub:"#ffffff"}},
+};
+const PRESETS = [
+  {name:"ロイヤルブルー", bg:"#1a52c9", card:"#0f2f7a", sub:"#ffffff"},
+  {name:"クリムゾン",   bg:"#8a1022", card:"#4f0913", sub:"#ffffff"},
+  {name:"エメラルド",   bg:"#0c6a4c", card:"#06402d", sub:"#ffd23f"},
+  {name:"パープル",     bg:"#55209c", card:"#2f1160", sub:"#ff4f8b"},
+  {name:"ティール",     bg:"#0a7486", card:"#06434f", sub:"#ff9a1f"},
+  {name:"サンセット",   bg:"#c9420e", card:"#74240a", sub:"#ffffff"},
+];
+const STORE_KEY = "lineup-maker-v1";
+const defaultState = () => ({
+  formation: "4-2-3-1",
+  brand: "STARTING XI",
+  logo: null,
+  logoSize: 70,
+  logoStyle: "plate",
+  system: "",
+  info: "",
+  match: "",
+  theme: "classic",
+  size: "wide",
+  cardScale: 1.25,
+  bgStyle: "hex",
+  showAccent: false,
+  colors: Object.assign({}, THEMES.classic.colors),
+  players: Array.from({length:11}, () => ({name:"", note:"", photo:null, off:null, src:null}))
+});
+let state = defaultState();
+try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && s.players && s.players.length === 11) { const d = defaultState(); if (!s.theme) delete s.colors; state = Object.assign(d, s); if (state.theme !== "classic") { state.theme = "classic"; state.colors = Object.assign({}, THEMES.classic.colors); } state.colors = Object.assign({}, THEMES.classic.colors, state.colors);
+  if ((state.colors.bg === "#1c1f27" && state.colors.card === "#2b2f3a") || (state.colors.bg === "#8a1022" && state.colors.card === "#4f0913")) { state.colors.bg = "#1a52c9"; state.colors.card = "#0f2f7a"; state.colors.sub = "#ffffff"; }
+  if (s.showAccent === undefined) state.showAccent = false;
+  if (!s.size) state.size = "wide";
+  if (state.info && state.info.trim()) { state.match = [state.info.trim(), (state.match||"").trim()].filter(Boolean).join("　"); state.info = ""; }
+  if (!s.cardScale || s.cardScale === 1.12) state.cardScale = 1.25;
+  if (!s.bgStyle) { state.bgStyle = "hex"; if (state.colors.bg === "#1b2160") state.colors.bg = THEMES.classic.colors.bg; if (state.colors.card === "#1e2a6e") state.colors.card = THEMES.classic.colors.card; } } } catch(e) {}
+
+const imgCache = new Map(); // dataURL -> HTMLImageElement
+function getImg(src){
+  if (!src) return null;
+  let im = imgCache.get(src);
+  if (!im){ im = new Image(); im.onload = () => draw(); im.src = src; imgCache.set(src, im); }
+  return im.complete && im.naturalWidth ? im : null;
+}
+
+let saveTimer = null;
+function persist(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      // keep original sources out of storage if too large
+      const slim = JSON.parse(JSON.stringify(state));
+      slim.players.forEach(p => { if (p.src && p.src.length > 600000) p.src = null; });
+      localStorage.setItem(STORE_KEY, JSON.stringify(slim));
+    } catch(e) {
+      try { const slim = JSON.parse(JSON.stringify(state)); slim.players.forEach(p => p.src = null); localStorage.setItem(STORE_KEY, JSON.stringify(slim)); } catch(_) {}
+    }
+  }, 300);
+}
+
+// ---------- drawing ----------
+const cv = document.getElementById("main");
+const ctx = cv.getContext("2d");
+const FONT_JP = '"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
+const FONT_EN = 'Oswald,"Arial Narrow",sans-serif';
+
+function theme(){ return THEMES[state.theme] || THEMES.hex; }
+let PT = THEMES.hex.pt;
+function P(u, v){
+  const y = PT.top + v * (PT.bottom - PT.top);
+  const hw = (PT.wTop + (PT.wBot - PT.wTop) * v) / 2;
+  return [W/2 + (u - .5) * 2 * hw, y];
+}
+function polyPath(pts){ ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); }
+function rectUV(u0,v0,u1,v1){ return [P(u0,v0),P(u1,v0),P(u1,v1),P(u0,v1),P(u0,v0)]; }
+
+function shade(hex, amt){
+  const n = parseInt(hex.slice(1),16); let r=n>>16,g=n>>8&255,b=n&255;
+  const f = amt<0 ? 0 : 255, t = Math.abs(amt);
+  r = Math.round(r+(f-r)*t); g = Math.round(g+(f-g)*t); b = Math.round(b+(f-b)*t);
+  return `rgb(${r},${g},${b})`;
+}
+function rgba(hex, a){ const n = parseInt(hex.slice(1),16); return `rgba(${n>>16},${n>>8&255},${n&255},${a})`; }
+
+function drawBackground(){
+  const c = state.colors, t = state.theme;
+  ctx.fillStyle = c.bg; ctx.fillRect(0,0,W,H);
+  if (t === "classic"){
+    const bs = state.bgStyle || "hex";
+    const g = ctx.createRadialGradient(W/2, H*.42, 80, W/2, H*.42, W*.8);
+    g.addColorStop(0, shade(c.bg,.12)); g.addColorStop(1, shade(c.bg,-.45));
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    if (bs === "arc"){
+      ctx.save(); ctx.globalAlpha = .13; ctx.strokeStyle = "#fff";
+      for (let i=0;i<14;i++){ ctx.lineWidth = 10 + (i%3)*6; ctx.beginPath(); ctx.arc(W/2, -380 + i*10, 760 + i*38, Math.PI*0.05, Math.PI*0.95); ctx.stroke(); }
+      ctx.restore();
+    } else if (bs === "hex"){
+      ctx.save(); ctx.strokeStyle = "rgba(255,255,255,.09)"; ctx.lineWidth = 2;
+      const r = 30, hw = Math.sqrt(3)*r;
+      for (let row=-1, y=-r; y < H + r; row++, y += r*1.5){
+        for (let x = (row%2 ? hw/2 : 0) - hw; x < W + hw; x += hw){
+          ctx.beginPath();
+          for (let k=0;k<6;k++){ const a = Math.PI/6 + k*Math.PI/3; const px = x + r*Math.cos(a), py = y + r*Math.sin(a); k?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+          ctx.closePath(); ctx.stroke();
+        }
+      }
+      ctx.restore();
+      // accent slashes in both side corners
+      if (state.showAccent) { ctx.save(); ctx.fillStyle = rgba(c.sub, .95);
+      polyPath([[0,H*.30],[60,H*.22],[60,H*.30],[0,H*.38]]); ctx.fill();
+      polyPath([[W,H*.30],[W-60,H*.22],[W-60,H*.30],[W,H*.38]]); ctx.fill();
+      ctx.globalAlpha = .45;
+      polyPath([[0,H*.41],[40,H*.355],[40,H*.385],[0,H*.44]]); ctx.fill();
+      polyPath([[W,H*.41],[W-40,H*.355],[W-40,H*.385],[W,H*.44]]); ctx.fill();
+      ctx.restore(); }
+    } else if (bs === "slash"){
+      ctx.save(); ctx.globalAlpha = .07; ctx.fillStyle = "#fff";
+      for (let x=-H; x<W; x+=46){ polyPath([[x,H],[x+18,H],[x+18+H,0],[x+H,0]]); ctx.closePath(); ctx.fill(); }
+      ctx.restore();
+      if (state.showAccent) ctx.save(); else { ctx.save(); ctx.globalAlpha = 0; } ctx.fillStyle = rgba(c.sub, .9);
+      polyPath([[-20,H*.62],[130,H*.12],[152,H*.12],[2,H*.62]]); ctx.closePath(); ctx.fill();
+      polyPath([[W+20,H*.62],[W-130,H*.12],[W-152,H*.12],[W-2,H*.62]]); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    } else if (bs === "lights"){
+      // stadium floodlights from the top corners + bokeh
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      [[70,-30,1],[W-70,-30,-1]].forEach(([x,y,d]) => {
+        for (let k=0;k<4;k++){
+          const a0 = Math.PI/2 - d*(.25 + k*.13), a1 = a0 - d*.05;
+          const gr = ctx.createRadialGradient(x,y,0,x,y,1100);
+          gr.addColorStop(0,"rgba(255,255,255,.16)"); gr.addColorStop(1,"rgba(255,255,255,0)");
+          ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(x,y);
+          ctx.lineTo(x+Math.cos(a0)*1400, y+Math.sin(a0)*1400); ctx.lineTo(x+Math.cos(a1)*1400, y+Math.sin(a1)*1400); ctx.closePath(); ctx.fill();
+        }
+        const glow = ctx.createRadialGradient(x,y+40,0,x,y+40,170);
+        glow.addColorStop(0,"rgba(255,255,255,.55)"); glow.addColorStop(.3,"rgba(255,255,240,.18)"); glow.addColorStop(1,"rgba(255,255,255,0)");
+        ctx.fillStyle = glow; ctx.fillRect(x-200,y-160,400,400);
+        for (let i=0;i<3;i++) for (let j=0;j<4;j++){ ctx.fillStyle="rgba(255,255,245,.85)"; ctx.beginPath(); ctx.arc(x-27+j*18, y+42+i*16, 5, 0, Math.PI*2); ctx.fill(); }
+      });
+      let seed = 7; const rnd = () => (seed = (seed*16807) % 2147483647) / 2147483647;
+      for (let i=0;i<40;i++){
+        const x = rnd()*W, y = rnd()*H*.95, r = 6 + rnd()*26;
+        const gg = ctx.createRadialGradient(x,y,0,x,y,r); gg.addColorStop(0, rgba(c.sub,.22)); gg.addColorStop(1, rgba(c.sub,0));
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    } else if (bs === "net"){
+      // goal-net mesh, stronger toward the edges
+      ctx.save(); ctx.lineWidth = 2;
+      const s = 36;
+      for (let k=-H; k<W+H; k+=s){
+        const lg1 = ctx.createLinearGradient(0,0,W,0);
+        lg1.addColorStop(0,"rgba(255,255,255,.16)"); lg1.addColorStop(.5,"rgba(255,255,255,.03)"); lg1.addColorStop(1,"rgba(255,255,255,.16)");
+        ctx.strokeStyle = lg1;
+        ctx.beginPath(); ctx.moveTo(k,0); ctx.lineTo(k+H,H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(k,H); ctx.lineTo(k+H,0); ctx.stroke();
+      }
+      ctx.fillStyle = c.sub; ctx.fillRect(0,0,10,H); ctx.fillRect(W-10,0,10,H);
+      ctx.restore();
+    } else if (bs === "poly"){
+      // low-poly triangles
+      ctx.save();
+      let seed = 11; const rnd = () => (seed = (seed*16807) % 2147483647) / 2147483647;
+      const cols = 9, rows = 9, cw = W/(cols-1), rh = H/(rows-1), pts = [];
+      for (let j=0;j<rows;j++){ pts.push([]); for (let i=0;i<cols;i++){
+        const jx = (i===0||i===cols-1) ? 0 : (rnd()-.5)*cw*.7, jy = (j===0||j===rows-1) ? 0 : (rnd()-.5)*rh*.7;
+        pts[j].push([i*cw + jx, j*rh + jy]); } }
+      for (let j=0;j<rows-1;j++) for (let i=0;i<cols-1;i++){
+        const a=pts[j][i], b=pts[j][i+1], cc=pts[j+1][i], d=pts[j+1][i+1];
+        [[a,b,d],[a,d,cc]].forEach(tri => {
+          const edge = Math.abs((tri[0][0]+tri[1][0]+tri[2][0])/3 - W/2) / (W/2);
+          ctx.fillStyle = rgba(rnd() < .12 && edge > .6 ? c.sub : (rnd()<.5 ? "#ffffff" : "#000000"), rnd() < .12 && edge > .6 ? .55 : .03 + rnd()*.07);
+          polyPath(tri); ctx.closePath(); ctx.fill();
+        });
+      }
+      ctx.restore();
+    } else if (bs === "bigtext"){
+      // huge outlined formation numbers on both sides
+      ctx.save();
+      const txt = state.formation.replace("◆","");
+      ctx.font = `700 230px ${FONT_EN}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,.14)";
+      ctx.translate(70, H*.45); ctx.rotate(-Math.PI/2); ctx.strokeText(txt, 0, 0);
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.translate(W-70, H*.45); ctx.rotate(Math.PI/2); ctx.strokeText(txt, 0, 0);
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.fillStyle = c.sub; ctx.fillRect(0, H*.12, 6, H*.66); ctx.fillRect(W-6, H*.12, 6, H*.66);
+      ctx.restore();
+    } else if (bs === "dots"){
+      ctx.save(); ctx.fillStyle = "rgba(255,255,255,.12)";
+      for (let y=10; y<H; y+=22) for (let x=(y/22%2)*11; x<W; x+=22){
+        const d = Math.hypot(x-W/2, y-H*.45) / (W*.75);
+        ctx.beginPath(); ctx.arc(x, y, 1.2 + 3*Math.min(1,d), 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  } else if (t === "stripe"){
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0, shade(c.bg,.1)); g.addColorStop(1, shade(c.bg,-.5));
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    // light beams from top corners
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    [[-60, -40, 1],[W+60, -40, -1]].forEach(([x,y,d]) => {
+      for (let k=0;k<5;k++){
+        const a0 = (d>0 ? .35 : Math.PI-.35) + d*k*.16, a1 = a0 + d*.06;
+        ctx.beginPath(); ctx.moveTo(x,y);
+        ctx.lineTo(x + Math.cos(a0)*1800, y + Math.sin(a0)*1800);
+        ctx.lineTo(x + Math.cos(a1)*1800, y + Math.sin(a1)*1800); ctx.closePath();
+        ctx.fillStyle = "rgba(255,255,255,.035)"; ctx.fill();
+      }
+    });
+    ctx.restore();
+  } else { // hex
+    const g = ctx.createRadialGradient(W*.5, H*.45, 100, W*.5, H*.45, W*.85);
+    g.addColorStop(0, shade(c.bg,.08)); g.addColorStop(1, shade(c.bg,-.5));
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    // hexagon grid
+    ctx.save(); ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.lineWidth = 2;
+    const r = 30, hw = Math.sqrt(3)*r;
+    for (let row=-1, y=-r; y < H + r; row++, y += r*1.5){
+      for (let x = (row%2 ? hw/2 : 0) - hw; x < W + hw; x += hw){
+        ctx.beginPath();
+        for (let k=0;k<6;k++){ const a = Math.PI/6 + k*Math.PI/3; const px = x + r*Math.cos(a), py = y + r*Math.sin(a); k?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+        ctx.closePath(); ctx.stroke();
+      }
+    }
+    ctx.restore();
+    // accent slashes at the corners
+    ctx.save(); ctx.fillStyle = rgba(c.sub, .9);
+    polyPath([[W-150,0],[W-110,0],[W-260,H*.42],[W-300,H*.42]]); ctx.fill();
+    ctx.globalAlpha = .5; polyPath([[W-90,0],[W-72,0],[W-222,H*.42],[W-240,H*.42]]); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawPitch(){
+  const c = state.colors, t = state.theme;
+  if (t === "classic"){
+    const N = 14;
+    for (let i=0;i<N;i++){ polyPath(rectUV(0,i/N,1,(i+1)/N)); ctx.closePath(); ctx.fillStyle = i%2 ? shade(c.grass,-.08) : shade(c.grass,.06); ctx.fill(); }
+  } else {
+    // shadow under the pitch
+    ctx.save(); ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10;
+    polyPath(rectUV(-.02,-.015,1.02,1.015)); ctx.closePath(); ctx.fillStyle = shade(c.grass,-.3); ctx.fill(); ctx.restore();
+    ctx.save(); polyPath(rectUV(-.02,-.015,1.02,1.015)); ctx.closePath(); ctx.clip();
+    ctx.fillStyle = c.grass; ctx.fillRect(0,0,W,H);
+    if (t === "stripe"){
+      const N = 12, x0 = P(-.02,0)[0], x1 = P(1.02,0)[0];
+      for (let i=0;i<N;i++){ ctx.fillStyle = i%2 ? shade(c.grass,-.07) : shade(c.grass,.05); ctx.fillRect(x0 + (x1-x0)*i/N, 0, (x1-x0)/N + 1, H); }
+    } else {
+      // diagonal checker mow
+      const s = 85;
+      ctx.translate(W/2, (PT.top+PT.bottom)/2); ctx.rotate(Math.PI/4);
+      for (let i=-12;i<12;i++) for (let j=-12;j<12;j++){
+        if ((i+j)%2===0) continue;
+        ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fillRect(i*s, j*s, s, s);
+      }
+      ctx.setTransform(1,0,0,1,0,0);
+    }
+    ctx.restore();
+  }
+  // shading + noise
+  ctx.save(); polyPath(rectUV(t==="classic"?0:-.02, t==="classic"?0:-.015, t==="classic"?1:1.02, t==="classic"?1:1.015)); ctx.closePath(); ctx.clip();
+  const lg = ctx.createLinearGradient(0,PT.top,0,PT.bottom);
+  lg.addColorStop(0,"rgba(0,0,0,.28)"); lg.addColorStop(.5,"rgba(0,0,0,0)"); lg.addColorStop(1,"rgba(0,0,0,.18)");
+  ctx.fillStyle = lg; ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha = .06;
+  for (let i=0;i<2500;i++){ ctx.fillStyle = Math.random()<.5?"#000":"#fff"; ctx.fillRect(Math.random()*W, PT.top+Math.random()*(PT.bottom-PT.top), 2, 2); }
+  ctx.restore();
+
+  // lines
+  ctx.save();
+  ctx.strokeStyle = t==="classic" ? "rgba(255,255,255,.85)" : "rgba(255,255,255,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
+  polyPath(rectUV(0,0,1,1)); ctx.stroke();
+  polyPath([P(0,.5),P(1,.5)]); ctx.stroke();
+  const pts=[]; for(let a=0;a<=64;a++){ const th=a/64*Math.PI*2; pts.push(P(.5+.135*Math.cos(th), .5+.087*Math.sin(th))); }
+  polyPath(pts); ctx.stroke();
+  polyPath(rectUV(.2,0,.8,.157)); ctx.stroke();
+  polyPath(rectUV(.37,0,.63,.052)); ctx.stroke();
+  polyPath(rectUV(.2,.843,.8,1)); ctx.stroke();
+  polyPath(rectUV(.37,.948,.63,1)); ctx.stroke();
+  const arc=(cy,dir)=>{ const a=[]; for(let k=0;k<=40;k++){ const th=k/40*Math.PI; const u=.5+.135*Math.cos(th), v=cy+dir*.087*Math.sin(th); if((dir>0&&v>=.157)||(dir<0&&v<=.843)) a.push(P(u,v)); } if(a.length>1){polyPath(a);ctx.stroke();} };
+  arc(.105,1); arc(.895,-1);
+  if (t !== "classic"){ // center spot + corner arcs
+    const [sx,sy] = P(.5,.5); ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill();
+    [[0,0,0],[1,0,Math.PI/2],[1,1,Math.PI],[0,1,Math.PI*1.5]].forEach(([u,v,a]) => { const [x,y] = P(u,v); ctx.beginPath(); ctx.arc(x,y,14,a,a+Math.PI/2); ctx.stroke(); });
+  }
+  ctx.restore();
+}
+
+function roundRectPath(x,y,w,h,r){
+  const rr = typeof r === "number" ? [r,r,r,r] : r;
+  ctx.beginPath();
+  ctx.moveTo(x+rr[0],y); ctx.lineTo(x+w-rr[1],y); ctx.quadraticCurveTo(x+w,y,x+w,y+rr[1]);
+  ctx.lineTo(x+w,y+h-rr[2]); ctx.quadraticCurveTo(x+w,y+h,x+w-rr[2],y+h);
+  ctx.lineTo(x+rr[3],y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-rr[3]);
+  ctx.lineTo(x,y+rr[0]); ctx.quadraticCurveTo(x,y,x+rr[0],y); ctx.closePath();
+}
+
+function slotPos(i){
+  const f = FORMATIONS[state.formation][i];
+  const p = state.players[i];
+  if (p.off && p.off.f === state.formation && (p.off.l || "square") === state.size) return [p.off.x, p.off.y];
+  return LAYOUT.map(f[1], f[2]);
+}
+
+function cardBox(i){
+  const [cx, cy] = slotPos(i);
+  const top = cy - ANCHOR_Y*S;
+  return {x: cx - PL_W*S/2, y: top, w: PL_W*S, h: (PLATE_OFF + PL_H + (state.players[i].note ? 30 : 0))*S, cx, top};
+}
+
+function fitFont(text, maxW, size, weight, family){
+  let s = size;
+  do { ctx.font = `${weight} ${s}px ${family}`; if (ctx.measureText(text).width <= maxW) break; s -= 1; } while (s > 12);
+  return s;
+}
+
+function drawSilhouette(x,y,w,h,col){
+  ctx.save(); ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(x+w/2, y+h*.4, w*.2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x+w/2, y+h*1.02, w*.42, h*.36, 0, Math.PI, 0); ctx.fill();
+  ctx.restore();
+}
+
+function drawPlayer(i, highlight){
+  const p = state.players[i];
+  const c = state.colors;
+  const box = cardBox(i);
+  ctx.save(); ctx.translate(box.cx, box.top); ctx.scale(S, S);
+  const cx = 0, top = 0;
+  const px = cx - PH_W/2, py = top;
+
+  // card shadow
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 8;
+  roundRectPath(px, py, PH_W, PH_H, [12,12,4,4]);
+  const cg = ctx.createLinearGradient(0,py,0,py+PH_H);
+  cg.addColorStop(0, shade(c.card,.18)); cg.addColorStop(1, shade(c.card,-.35));
+  ctx.fillStyle = cg; ctx.fill();
+  ctx.restore();
+
+  // card pattern (diagonal sheen)
+  ctx.save(); roundRectPath(px, py, PH_W, PH_H, [12,12,4,4]); ctx.clip();
+  ctx.globalAlpha = .12; ctx.strokeStyle = "#fff"; ctx.lineWidth = 6;
+  for (let k=-PH_H;k<PH_W;k+=22){ ctx.beginPath(); ctx.moveTo(px+k, py+PH_H); ctx.lineTo(px+k+PH_H, py); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  // photo
+  const im = getImg(p.photo);
+  if (im) ctx.drawImage(im, px, py, PH_W, PH_H);
+  else drawSilhouette(px, py, PH_W, PH_H, "rgba(255,255,255,.18)");
+  // bottom fade into plate
+  const fg = ctx.createLinearGradient(0, py+PH_H-40, 0, py+PH_H);
+  fg.addColorStop(0,"rgba(0,0,0,0)"); fg.addColorStop(1,"rgba(0,0,0,.35)");
+  ctx.fillStyle = fg; ctx.fillRect(px, py+PH_H-40, PH_W, 40);
+  ctx.restore();
+  // card border
+  ctx.save(); roundRectPath(px, py, PH_W, PH_H, [12,12,4,4]);
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+
+  // name plate
+  const ny = py + PLATE_OFF;
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
+  const th = state.theme;
+  if (th === "hex"){
+    // dark slanted plate with accent underline
+    polyPath([[cx-PL_W/2+8,ny],[cx+PL_W/2,ny],[cx+PL_W/2-8,ny+PL_H],[cx-PL_W/2,ny+PL_H]]); ctx.closePath();
+    ctx.fillStyle = "#0e0f13"; ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = c.sub; polyPath([[cx-PL_W/2+1,ny+PL_H-5],[cx+PL_W/2-6,ny+PL_H-5],[cx+PL_W/2-8,ny+PL_H],[cx-PL_W/2,ny+PL_H]]); ctx.closePath(); ctx.fill();
+  } else if (th === "stripe"){
+    roundRectPath(cx - PL_W/2, ny, PL_W, PL_H, 4);
+    ctx.fillStyle = "#fff"; ctx.fill();
+    ctx.restore();
+    ctx.save(); roundRectPath(cx - PL_W/2, ny, PL_W, PL_H, 4); ctx.clip();
+    ctx.fillStyle = c.sub; ctx.fillRect(cx - PL_W/2, ny, 8, PL_H); ctx.restore();
+  } else {
+    roundRectPath(cx - PL_W/2, ny, PL_W, PL_H, 6);
+    ctx.fillStyle = "#fff"; ctx.fill();
+    ctx.restore();
+  }
+  const name = p.name || "選手名";
+  const fs = fitFont(name, PL_W - (th==="stripe"?24:16), 28, 900, FONT_JP);
+  ctx.font = `900 ${fs}px ${FONT_JP}`;
+  ctx.fillStyle = th === "hex" ? (p.name ? "#fff" : "#777") : (p.name ? "#111" : "#aaa");
+  if (th === "stripe") { ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(name, cx + 4, ny + PL_H/2 + 1); }
+  else
+  { ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(name, cx, ny + PL_H/2 - (th==="hex"?2:-1)); }
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+  // note
+  if (p.note){
+    const t = `（${p.note}）`;
+    const nfs = fitFont(t, 220, 21, 700, FONT_JP);
+    ctx.font = `700 ${nfs}px ${FONT_JP}`;
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,.65)"; ctx.lineJoin = "round";
+    ctx.strokeText(t, cx, ny + PL_H + 20);
+    ctx.fillStyle = "#fff"; ctx.fillText(t, cx, ny + PL_H + 20);
+  }
+
+  if (highlight){
+    ctx.save(); ctx.setLineDash([8,6]); ctx.strokeStyle = "#7fb0ff"; ctx.lineWidth = 3;
+    roundRectPath(cx - PL_W/2 - 8, py - 8, PL_W + 16, PLATE_OFF + PL_H + 16 + (p.note?26:0), 12); ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawHeader(){
+  const c = state.colors;
+  ctx.save();
+  ctx.textBaseline = "middle";
+  // brand (left): logo image takes priority
+  const logo = getImg(state.logo);
+  if (logo){
+    const h = state.logoSize || 70;
+    let w = logo.naturalWidth * h / logo.naturalHeight, hh = h;
+    const maxW = 420; if (w > maxW){ hh = h * maxW / w; w = maxW; }
+    const style = state.logoStyle || "plate";
+    let lx = 20, ly = 16;
+    if (style === "plate"){
+      // corner tab: attached to the top-left edge, slanted right side
+      const padX = Math.max(14, hh * .22), padY = Math.max(8, hh * .14);
+      const pw = w + padX * 2, ph = hh + padY * 2, slant = ph * .45;
+      lx = padX; ly = padY;
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = 16; ctx.shadowOffsetY = 3;
+      polyPath([[0,0],[pw + slant,0],[pw,ph],[0,ph]]); ctx.closePath();
+      const pg = ctx.createLinearGradient(0,0,0,ph);
+      pg.addColorStop(0,"rgba(255,255,255,.97)"); pg.addColorStop(1,"rgba(236,240,248,.93)");
+      ctx.fillStyle = pg; ctx.fill();
+      ctx.restore();
+      // thin bg-colored edge line along the slant for a tidy finish
+      ctx.save(); ctx.strokeStyle = rgba(state.colors.bg, .9); ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(pw + slant + 10, 0); ctx.lineTo(pw + 10, ph); ctx.stroke(); ctx.restore();
+      ctx.drawImage(logo, lx, ly, w, hh);
+    } else if (style === "white"){
+      const oc = document.createElement("canvas"); oc.width = Math.ceil(w*2); oc.height = Math.ceil(hh*2);
+      const o = oc.getContext("2d"); o.drawImage(logo, 0, 0, oc.width, oc.height);
+      o.globalCompositeOperation = "source-in"; o.fillStyle = "#fff"; o.fillRect(0,0,oc.width,oc.height);
+      ctx.save(); ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
+      ctx.drawImage(oc, lx, ly, w, hh); ctx.restore();
+    } else {
+      ctx.save(); ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
+      ctx.drawImage(logo, lx, ly, w, hh); ctx.restore();
+    }
+  } else if (state.brand){
+    ctx.textAlign = "left";
+    const fs = fitFont(state.brand, 300, 40, 700, FONT_EN + "," + FONT_JP);
+    ctx.font = `italic 700 ${fs}px ${FONT_EN},${FONT_JP}`;
+    ctx.lineWidth = 8; ctx.strokeStyle = "rgba(0,0,0,.55)"; ctx.lineJoin="round";
+    ctx.strokeText(state.brand, 22, 44);
+    ctx.fillStyle = c.accent; ctx.fillText(state.brand, 22, 44);
+  }
+  // system (right)
+  const sys = state.system.trim() || ("システム " + state.formation.replace("◆","ダイヤ"));
+  ctx.textAlign = "right";
+  const fs2 = fitFont(sys, 330, 40, 700, FONT_EN + "," + FONT_JP);
+  ctx.font = `700 ${fs2}px ${FONT_EN},${FONT_JP}`;
+  if (state.theme === "hex"){
+    const tw = ctx.measureText(sys).width;
+    ctx.fillStyle = c.sub;
+    polyPath([[W-tw-70,14],[W,14],[W,72],[W-tw-88,72]]); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = c.accent; ctx.fillText(sys, W-26, 44);
+  } else {
+    ctx.lineWidth = 8; ctx.strokeStyle = "rgba(0,0,0,.55)";
+    ctx.strokeText(sys, W-24, 44);
+    ctx.fillStyle = c.accent; ctx.fillText(sys, W-24, 44);
+  }
+  ctx.restore();
+}
+
+function drawFooter(){
+  const c = state.colors;
+  const y0 = LAYOUT.footerY;
+  ctx.save();
+  if (state.theme === "classic"){
+    const g = ctx.createLinearGradient(0,y0-30,0,H);
+    g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(.2, shade(c.bg,-.55)); g.addColorStop(1, shade(c.bg,-.7));
+    ctx.fillStyle = g; ctx.fillRect(0,y0-30,W,H-y0+30);
+  } else {
+    ctx.fillStyle = shade(c.bg,-.45); ctx.fillRect(0, y0+4, W, H-y0-4);
+    ctx.fillStyle = c.sub; ctx.fillRect(0, y0+4, W, 5);
+    polyPath([[0,y0+4],[230,y0+4],[205,y0+56],[0,y0+56]]); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fillRect(250, y0+62, W-330, 2);
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
+  const line = [state.info, state.match].filter(s => s && s.trim()).join("　");
+  if (line){
+    const fs = fitFont(line, W-80, 40, 900, FONT_JP);
+    ctx.font = `900 ${fs}px ${FONT_JP}`;
+    ctx.fillText(line, W/2, (y0 + 8 + H) / 2);
+  }
+  ctx.restore();
+}
+
+let selected = -1, dragging = -1;
+function applyLayout(){
+  LAYOUT = LAYOUTS[state.size] || LAYOUTS.wide;
+  W = LAYOUT.W; H = LAYOUT.H; S = LAYOUT.S * (state.cardScale || 1.25);
+  if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; }
+  cv.style.aspectRatio = `${W} / ${H}`;
+}
+function draw(forExport){
+  applyLayout();
+  PT = state.theme === "classic" ? LAYOUT.pt : theme().pt;
+  ctx.clearRect(0,0,W,H);
+  drawBackground();
+  drawPitch();
+  drawFooter();
+  // draw back-to-front by y so lower cards overlap upper ones
+  const order = [...Array(11).keys()].sort((a,b)=>slotPos(a)[1]-slotPos(b)[1]);
+  order.forEach(i => drawPlayer(i, !forExport && (i===selected || i===dragging)));
+  drawHeader();
+}
+
+// ---------- canvas interaction ----------
+function canvasPt(e){
+  const r = cv.getBoundingClientRect();
+  return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height];
+}
+function hit(x,y){
+  const order = [...Array(11).keys()].sort((a,b)=>slotPos(b)[1]-slotPos(a)[1]);
+  for (const i of order){ const b = cardBox(i); if (x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h) return i; }
+  return -1;
+}
+let dragStart = null;
+cv.addEventListener("pointerdown", e => {
+  const [x,y] = canvasPt(e); const i = hit(x,y);
+  if (i < 0) { selected = -1; renderList(); draw(); return; }
+  dragging = i; selected = i;
+  const [sx,sy] = slotPos(i);
+  dragStart = {x, y, sx, sy, moved:false};
+  cv.setPointerCapture(e.pointerId); cv.classList.add("dragging");
+  renderListSel(); draw();
+});
+cv.addEventListener("pointermove", e => {
+  if (dragging < 0) return;
+  const [x,y] = canvasPt(e);
+  const dx = x - dragStart.x, dy = y - dragStart.y;
+  if (Math.abs(dx)+Math.abs(dy) > 3) dragStart.moved = true;
+  const nx = Math.max(PL_W*S/2, Math.min(W-PL_W*S/2, dragStart.sx + dx));
+  const ny = Math.max(ANCHOR_Y*S, Math.min(H-110*S, dragStart.sy + dy));
+  state.players[dragging].off = {f: state.formation, l: state.size, x: nx, y: ny};
+  draw();
+});
+const endDrag = e => {
+  if (dragging < 0) return;
+  const i = dragging; dragging = -1; cv.classList.remove("dragging");
+  if (dragStart && !dragStart.moved){
+    const el = document.querySelector(`.pl[data-i="${i}"] input.name`);
+    if (el) { el.scrollIntoView({block:"nearest", behavior:"smooth"}); el.focus({preventScroll:true}); }
+  }
+  persist(); draw();
+};
+cv.addEventListener("pointerup", endDrag);
+cv.addEventListener("pointercancel", endDrag);
+
+// ---------- side panel ----------
+const fmtBtns = document.getElementById("fmtBtns");
+FMT_KEYS.forEach(k => {
+  const b = document.createElement("button"); b.textContent = k; b.dataset.k = k;
+  b.onclick = () => { state.formation = k; updateFmtBtns(); renderList(); draw(); persist(); };
+  fmtBtns.appendChild(b);
+});
+function updateFmtBtns(){ [...fmtBtns.children].forEach(b => b.classList.toggle("on", b.dataset.k === state.formation)); }
+
+const bind = (id, key) => {
+  const el = document.getElementById(id); el.value = state[key] || "";
+  el.addEventListener("input", () => { state[key] = el.value; draw(); persist(); });
+};
+bind("tBrand","brand"); bind("tSystem","system"); bind("tInfo","info"); bind("tMatch","match");
+["bg","card","grass","accent","sub"].forEach(k => {
+  const el = document.getElementById("c" + k[0].toUpperCase() + k.slice(1));
+  el.value = state.colors[k];
+  el.addEventListener("input", () => { state.colors[k] = el.value; draw(); persist(); });
+});
+
+const playersEl = document.getElementById("players");
+function esc(s){ return String(s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function renderList(){
+  const f = FORMATIONS[state.formation];
+  playersEl.innerHTML = "";
+  state.players.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "pl" + (i===selected ? " sel" : ""); row.dataset.i = i;
+    row.innerHTML = `
+      <div class="pos">${esc(f[i][0])}</div>
+      <div class="thumb ${p.photo?"has":""}" title="写真を選択/クロップ" ${p.photo?`style="background-image:url('${p.photo}')"`:""}>${p.photo?"":"写真<br>を選択"}</div>
+      <div class="fields">
+        <input type="text" class="name" list="libNames" autocomplete="off" placeholder="選手名（例: 久保建英）" value="${esc(p.name)}">
+        <input type="text" class="note" placeholder="補足（任意・例: 渡辺 剛）" value="${esc(p.note)}">
+      </div>
+      <div class="btns">
+        <button class="up" title="上と入れ替え" ${i===0?"disabled":""}>↑</button>
+        <button class="dn" title="下と入れ替え" ${i===10?"disabled":""}>↓</button>
+        <button class="stk" title="この選手をストックに保存" ${p.name&&p.photo?"":"disabled"}>保存</button>
+      </div>`;
+    const nameIn = row.querySelector(".name"), noteIn = row.querySelector(".note");
+    nameIn.addEventListener("input", () => { p.name = nameIn.value; draw(); persist(); });
+    noteIn.addEventListener("input", () => { p.note = noteIn.value; draw(); persist(); });
+    nameIn.addEventListener("focus", () => { selected = i; renderListSel(); draw(); });
+    noteIn.addEventListener("focus", () => { selected = i; renderListSel(); draw(); });
+    const th = row.querySelector(".thumb");
+    th.addEventListener("click", () => { if (p.src || p.photo) openCrop(i, p.src || p.photo); else pickFile(i); });
+    th.addEventListener("dragover", e => { e.preventDefault(); th.classList.add("dropzone-over"); });
+    th.addEventListener("dragleave", () => th.classList.remove("dropzone-over"));
+    th.addEventListener("drop", e => {
+      e.preventDefault(); th.classList.remove("dropzone-over");
+      const file = e.dataTransfer.files && e.dataTransfer.files[0]; if (file) loadFile(i, file);
+    });
+    row.querySelector(".stk").onclick = () => lib.upsert(p.name, p.photo, p.note);
+    nameIn.addEventListener("change", () => {
+      const hit = lib.find(nameIn.value);
+      if (hit && hit.photo) { p.name = hit.name; p.photo = hit.photo; p.src = null; p.cropInfo = null; renderList(); draw(); persist(); }
+      else row.querySelector(".stk").disabled = !(p.name && p.photo);
+    });
+    row.querySelector(".up").onclick = () => swap(i, i-1);
+    row.querySelector(".dn").onclick = () => swap(i, i+1);
+    playersEl.appendChild(row);
+  });
+}
+function renderListSel(){ [...playersEl.children].forEach(r => r.classList.toggle("sel", +r.dataset.i === selected)); }
+function swap(a,b){
+  if (b<0||b>10) return;
+  const A = state.players[a], B = state.players[b];
+  // swap identity but keep positional offsets with the slot
+  const keys = ["name","note","photo","src"];
+  keys.forEach(k => { const t = A[k]; A[k] = B[k]; B[k] = t; });
+  selected = b; renderList(); draw(); persist();
+}
+
+// ---------- file / crop ----------
+const fileIn = document.getElementById("fileIn");
+let fileTarget = -1;
+function pickFile(i){ fileTarget = i; fileIn.value = ""; fileIn.click(); }
+fileIn.addEventListener("change", () => { const f = fileIn.files[0]; if (f && fileTarget >= 0) loadFile(fileTarget, f); });
+function loadFile(i, file){
+  if (!file.type.startsWith("image/")) { toast("画像ファイルを選んでください"); return; }
+  const fr = new FileReader();
+  fr.onload = () => downscale(fr.result, 1600).then(src => openCrop(i, src));
+  fr.readAsDataURL(file);
+}
+function downscale(src, max){
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const s = Math.min(1, max / Math.max(im.width, im.height));
+      if (s === 1) return res(src);
+      const c = document.createElement("canvas"); c.width = Math.round(im.width*s); c.height = Math.round(im.height*s);
+      c.getContext("2d").drawImage(im,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",.9));
+    };
+    im.onerror = () => toast("画像を読み込めませんでした");
+    im.src = src;
+  });
+}
+
+const cropModal = document.getElementById("cropModal");
+const ccv = document.getElementById("cropCv"), cctx = ccv.getContext("2d");
+const zoomEl = document.getElementById("zoom");
+const CW = 600, FR_W = 340, FR_H = Math.round(340 * PH_H / PH_W); // crop frame
+const FR_X = (CW - FR_W)/2, FR_Y = (CW - FR_H)/2;
+let crop = null; // {i, img, src, scale, minS, maxS, x, y}
+
+function openCrop(i, src){
+  const im = new Image();
+  im.onload = () => {
+    const p = state.players[i];
+    const minS = Math.max(FR_W/im.width, FR_H/im.height);
+    const maxS = minS * 6;
+    crop = {i, img: im, src, minS, maxS, scale: minS, x: (CW - im.width*minS)/2, y: (CW - im.height*minS)/2};
+    // restore previous crop if same source
+    if (p.cropInfo && p.src === src){ Object.assign(crop, p.cropInfo); }
+    else { // default: focus a bit higher (faces usually in upper part)
+      crop.y = FR_Y - (im.height*crop.scale - FR_H) * .25;
+    }
+    clampCrop(); syncZoom();
+    document.getElementById("cropTitle").textContent = `顔写真をクロップ（${p.name || FORMATIONS[state.formation][i][0]}）`;
+    cropModal.classList.add("open"); drawCrop();
+  };
+  im.src = src;
+}
+function clampCrop(){
+  const w = crop.img.width*crop.scale, h = crop.img.height*crop.scale;
+  crop.x = Math.min(FR_X, Math.max(FR_X + FR_W - w, crop.x));
+  crop.y = Math.min(FR_Y, Math.max(FR_Y + FR_H - h, crop.y));
+}
+function syncZoom(){ zoomEl.value = Math.log(crop.scale/crop.minS) / Math.log(crop.maxS/crop.minS); }
+function setScale(ns, ax, ay){
+  ns = Math.max(crop.minS, Math.min(crop.maxS, ns));
+  ax = ax ?? CW/2; ay = ay ?? CW/2;
+  crop.x = ax - (ax - crop.x) * ns / crop.scale;
+  crop.y = ay - (ay - crop.y) * ns / crop.scale;
+  crop.scale = ns; clampCrop(); drawCrop();
+}
+function drawCrop(){
+  cctx.fillStyle = "#0a0c16"; cctx.fillRect(0,0,CW,CW);
+  cctx.drawImage(crop.img, crop.x, crop.y, crop.img.width*crop.scale, crop.img.height*crop.scale);
+  // dim outside
+  cctx.save(); cctx.fillStyle = "rgba(0,0,0,.6)";
+  cctx.beginPath(); cctx.rect(0,0,CW,CW); cctx.rect(FR_X,FR_Y,FR_W,FR_H); cctx.fill("evenodd");
+  cctx.strokeStyle = "#fff"; cctx.lineWidth = 2; cctx.strokeRect(FR_X+1,FR_Y+1,FR_W-2,FR_H-2);
+  // guides
+  cctx.globalAlpha = .35; cctx.beginPath();
+  for (let k=1;k<3;k++){ cctx.moveTo(FR_X+FR_W*k/3,FR_Y); cctx.lineTo(FR_X+FR_W*k/3,FR_Y+FR_H); cctx.moveTo(FR_X,FR_Y+FR_H*k/3); cctx.lineTo(FR_X+FR_W,FR_Y+FR_H*k/3); }
+  cctx.stroke(); cctx.restore();
+}
+zoomEl.addEventListener("input", () => { const t = +zoomEl.value; setScale(crop.minS * Math.pow(crop.maxS/crop.minS, t)); });
+const ptrs = new Map(); let pinch = null, panStart = null;
+function cpt(e){ const r = ccv.getBoundingClientRect(); return [(e.clientX-r.left)*CW/r.width, (e.clientY-r.top)*CW/r.height]; }
+ccv.addEventListener("pointerdown", e => {
+  ccv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, cpt(e));
+  if (ptrs.size === 1){ const [x,y] = cpt(e); panStart = {x,y,cx:crop.x,cy:crop.y}; }
+  if (ptrs.size === 2){ const [a,b] = [...ptrs.values()]; pinch = {d: Math.hypot(a[0]-b[0],a[1]-b[1]), s: crop.scale}; }
+});
+ccv.addEventListener("pointermove", e => {
+  if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, cpt(e));
+  if (ptrs.size === 2 && pinch){
+    const [a,b] = [...ptrs.values()]; const d = Math.hypot(a[0]-b[0],a[1]-b[1]);
+    setScale(pinch.s * d / pinch.d, (a[0]+b[0])/2, (a[1]+b[1])/2); syncZoom();
+  } else if (panStart){
+    const [x,y] = cpt(e); crop.x = panStart.cx + x - panStart.x; crop.y = panStart.cy + y - panStart.y; clampCrop(); drawCrop();
+  }
+});
+const cEnd = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) panStart = null;
+  else if (ptrs.size === 1){ const [p] = ptrs.values(); panStart = {x:p[0],y:p[1],cx:crop.x,cy:crop.y}; } };
+ccv.addEventListener("pointerup", cEnd); ccv.addEventListener("pointercancel", cEnd);
+ccv.addEventListener("wheel", e => { e.preventDefault(); const [x,y] = cpt(e); setScale(crop.scale * Math.exp(-e.deltaY*0.0015), x, y); syncZoom(); }, {passive:false});
+
+function closeCrop(){ cropModal.classList.remove("open"); crop = null; }
+document.getElementById("cropCancel").onclick = closeCrop;
+document.getElementById("cropChange").onclick = () => { const i = crop.i; closeCrop(); pickFile(i); };
+document.getElementById("cropRemove").onclick = () => {
+  const p = state.players[crop.i]; p.photo = null; p.src = null; p.cropInfo = null; closeCrop(); renderList(); draw(); persist();
+};
+document.getElementById("cropOk").onclick = () => {
+  const OUT_W = PH_W*3, OUT_H = PH_H*3;
+  const oc = document.createElement("canvas"); oc.width = OUT_W; oc.height = OUT_H;
+  const sx = (FR_X - crop.x)/crop.scale, sy = (FR_Y - crop.y)/crop.scale;
+  oc.getContext("2d").drawImage(crop.img, sx, sy, FR_W/crop.scale, FR_H/crop.scale, 0, 0, OUT_W, OUT_H);
+  const p = state.players[crop.i];
+  p.photo = oc.toDataURL("image/jpeg", .9);
+  p.src = crop.src;
+  p.cropInfo = {scale: crop.scale, x: crop.x, y: crop.y};
+  if (p.name.trim()) lib.upsert(p.name, p.photo, p.note, true);
+  closeCrop(); renderList(); draw(); persist();
+};
+
+// ---------- theme ----------
+const themeSel = document.getElementById("themeSel");
+Object.entries(THEMES).forEach(([k,v]) => { const o = document.createElement("option"); o.value = k; o.textContent = v.label; themeSel.appendChild(o); });
+themeSel.value = state.theme;
+themeSel.addEventListener("change", () => {
+  state.theme = themeSel.value;
+  state.colors = Object.assign({}, THEMES[state.theme].colors);
+  initFields(); draw(); persist();
+});
+
+const sizeSel = document.getElementById("sizeSel");
+Object.entries(LAYOUTS).forEach(([k,v]) => { const o = document.createElement("option"); o.value = k; o.textContent = v.label; sizeSel.appendChild(o); });
+sizeSel.value = state.size || "wide";
+sizeSel.addEventListener("change", () => { state.size = sizeSel.value; draw(); persist(); });
+const cardScaleEl = document.getElementById("cardScale"), cardScaleVal = document.getElementById("cardScaleVal");
+const syncCardScale = () => { cardScaleEl.value = state.cardScale || 1.25; cardScaleVal.textContent = Math.round((state.cardScale || 1.25) * 100) + "%"; };
+syncCardScale();
+cardScaleEl.addEventListener("input", () => { state.cardScale = +cardScaleEl.value; syncCardScale(); draw(); persist(); });
+const presetsEl = document.getElementById("presets");
+PRESETS.forEach(pr => {
+  const b = document.createElement("button"); b.className = "sm";
+  b.style.cssText = `display:flex;align-items:center;gap:6px`;
+  b.innerHTML = `<span style="width:16px;height:16px;border-radius:4px;background:linear-gradient(135deg,${pr.bg} 60%,${pr.sub} 60%);border:1px solid rgba(255,255,255,.3)"></span>${pr.name}`;
+  b.onclick = () => { Object.assign(state.colors, {bg:pr.bg, card:pr.card, sub:pr.sub}); initFields(); draw(); persist(); };
+  presetsEl.appendChild(b);
+});
+const accEl = document.getElementById("showAccent");
+accEl.checked = !!state.showAccent;
+accEl.addEventListener("change", () => { state.showAccent = accEl.checked; draw(); persist(); });
+const bgStyleSel = document.getElementById("bgStyle");
+bgStyleSel.value = state.bgStyle || "hex";
+bgStyleSel.addEventListener("change", () => { state.bgStyle = bgStyleSel.value; draw(); persist(); });
+
+// ---------- logo ----------
+const logoIn = document.getElementById("logoIn"), logoThumb = document.getElementById("logoThumb"), logoSize = document.getElementById("logoSize");
+function syncLogoUI(){
+  logoThumb.style.backgroundImage = state.logo ? `url('${state.logo}')` : "";
+  logoThumb.textContent = state.logo ? "" : "未設定";
+  logoSize.value = state.logoSize || 70;
+  document.getElementById("logoStyle").value = state.logoStyle || "plate";
+}
+document.getElementById("logoStyle").addEventListener("change", e => { state.logoStyle = e.target.value; draw(); persist(); });
+const openLogo = () => { logoIn.value = ""; logoIn.click(); };
+document.getElementById("logoPick").onclick = openLogo;
+logoThumb.onclick = openLogo;
+logoIn.addEventListener("change", () => {
+  const f = logoIn.files[0]; if (!f) return;
+  if (!f.type.startsWith("image/")) { toast("画像ファイルを選んでください"); return; }
+  const fr = new FileReader();
+  fr.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      // keep transparency (PNG); downscale big logos
+      const s = Math.min(1, 1200 / Math.max(im.width, im.height));
+      const c = document.createElement("canvas"); c.width = Math.round(im.width*s); c.height = Math.round(im.height*s);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+      state.logo = c.toDataURL("image/png"); syncLogoUI(); draw(); persist();
+    };
+    im.onerror = () => toast("画像を読み込めませんでした");
+    im.src = fr.result;
+  };
+  fr.readAsDataURL(f);
+});
+document.getElementById("logoClear").onclick = () => { state.logo = null; syncLogoUI(); draw(); persist(); };
+logoSize.addEventListener("input", () => { state.logoSize = +logoSize.value; draw(); persist(); });
+
+// ---------- player stock (library) ----------
+const LIB_LOCAL = "lineup-maker-lib-v1";
+const normName = s => String(s||"").replace(/[\s\u3000]+/g, "").toLowerCase();
+const lib = {
+  items: new Map(), db: null, mode: "loading",
+  find(name){ const k = normName(name); if (!k) return null; for (const it of this.items.values()) if (normName(it.name) === k) return it; return null; },
+  newId(){ return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); },
+  saveLocal(){ try { localStorage.setItem(LIB_LOCAL, JSON.stringify([...this.items.values()])); } catch(e) { toast("ブラウザの保存容量がいっぱいです"); } },
+  loadLocal(){ try { const a = JSON.parse(localStorage.getItem(LIB_LOCAL) || "[]"); a.forEach(it => this.items.set(it.id, it)); } catch(e) {} },
+  async upsert(name, photo, note, quiet){
+    name = String(name||"").trim();
+    if (!name || !photo) { toast("名前と写真の両方が必要です"); return; }
+    const ex = this.find(name);
+    const it = {id: ex ? ex.id : this.newId(), name, photo, note: note || "", updatedAt: Date.now()};
+    this.items.set(it.id, it); renderLib();
+    if (this.db){
+      try { await this.col().doc(it.id).set({name: it.name, photo: it.photo, note: it.note, updatedAt: it.updatedAt}); }
+      catch(e){
+        if (e && e.code === "quota_exceeded") { toast("ストックの容量がいっぱいです。不要な選手を削除してください"); return; }
+        // this viewer cannot write to the cloud (e.g. opened from a public link): keep the stock in this browser
+        this.toLocal(); this.saveLocal();
+      }
+    } else this.saveLocal();
+    if (!quiet) toast(`「${name}」をストックしました`); else toast(`「${name}」をストックにも保存しました`);
+  },
+  async remove(id){
+    const it = this.items.get(id); if (!it) return;
+    this.items.delete(id); renderLib();
+    if (this.db){ try { await this.col().doc(id).delete(); } catch(e){ this.toLocal(); this.saveLocal(); } }
+    else this.saveLocal();
+  },
+  uid: null, unsub: null,
+  col(){ return this.db.collection("data/users/" + this.uid); },
+  toLocal(){
+    if (this.unsub) { try { this.unsub(); } catch(e){} this.unsub = null; }
+    this.db = null; this.mode = "local";
+    const cur = [...this.items.values()]; this.loadLocal(); cur.forEach(it => this.items.set(it.id, it));
+    renderLib();
+  },
+};
+const libList = document.getElementById("libList"), libSearch = document.getElementById("libSearch"), libStatus = document.getElementById("libStatus"), libNames = document.getElementById("libNames");
+let libDelArm = null;
+function renderLib(){
+  const q = normName(libSearch.value);
+  const arr = [...lib.items.values()].sort((a,b) => a.name.localeCompare(b.name, "ja"));
+  libNames.innerHTML = arr.map(it => `<option value="${esc(it.name)}"></option>`).join("");
+  const shown = arr.filter(it => !q || normName(it.name).includes(q));
+  libList.innerHTML = "";
+  if (!shown.length){
+    libList.innerHTML = `<div style="grid-column:1/-1;color:var(--muted);font-size:12px;padding:10px 0">${arr.length ? "見つかりません" : (lib.mode === "loading" ? "読み込み中…" : "まだストックはありません")}</div>`;
+  }
+  shown.forEach(it => {
+    const d = document.createElement("div");
+    d.style.cssText = "position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px;cursor:pointer;text-align:center";
+    d.title = "クリックで枠に入れる";
+    d.innerHTML = `<div style="aspect-ratio:${PH_W}/${PH_H};border-radius:5px;background:#11152a url('${it.photo}') center/cover"></div>
+      <div style="font-size:11px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div>
+      <button class="sm" data-del style="position:absolute;top:2px;right:2px;padding:0 5px;font-size:11px;line-height:16px;background:rgba(0,0,0,.6)">${libDelArm===it.id?"削除?":"×"}</button>`;
+    d.onclick = (e) => {
+      if (e.target.closest("[data-del]")){
+        e.stopPropagation();
+        if (libDelArm === it.id){ libDelArm = null; lib.remove(it.id); }
+        else { libDelArm = it.id; renderLib(); setTimeout(() => { if (libDelArm === it.id){ libDelArm = null; renderLib(); } }, 3000); }
+        return;
+      }
+      let t = selected;
+      if (t < 0) t = state.players.findIndex(p => !p.name.trim());
+      if (t < 0) { toast("入れる枠を選んでください（リストか図のカードをクリック）"); return; }
+      const p = state.players[t];
+      p.name = it.name; p.photo = it.photo; p.src = null; p.cropInfo = null;
+      selected = t; renderList(); draw(); persist();
+      toast(`${FORMATIONS[state.formation][t][0]} に「${it.name}」を入れました`);
+    };
+    libList.appendChild(d);
+  });
+  const n = lib.items.size;
+  libStatus.textContent = lib.mode === "db" ? `${n}人・あなた専用に保存` : lib.mode === "local" ? `${n}人・このブラウザに保存` : "接続中…";
+}
+libSearch.addEventListener("input", renderLib);
+document.getElementById("libSaveAll").onclick = async () => {
+  const list = state.players.filter(p => p.name.trim() && p.photo);
+  if (!list.length) { toast("名前と写真が揃った選手がいません"); return; }
+  for (const p of list) await lib.upsert(p.name, p.photo, p.note, true);
+  toast(`${list.length}人をストックしました`);
+};
+(async () => {
+  // Each person's stock is private to them (data/users/<id>). Viewers who cannot use the cloud keep it in their browser.
+  let done = false;
+  const fallback = () => { if (done) return; done = true; lib.mode = "local"; lib.loadLocal(); renderLib(); };
+  const timer = setTimeout(fallback, 10000);
+  let db = null, user = null, uid = null;
+  try { if (window.claude && window.claude.use) { [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]); } } catch(e) {}
+  try { uid = user ? await user.id() : null; } catch(e) {}
+  if (!db || !uid) { clearTimeout(timer); fallback(); return; }
+  lib.uid = uid;
+  // one-time move of the owner's earlier shared stock into their private stock
+  try {
+    if (user.isOwner && await user.isOwner()){
+      const old = await db.collection("players").get();
+      for (const d of old.docs){
+        const v = d.data(); if (!v || !v.name) continue;
+        await db.collection("data/users/" + uid).doc(d.id).set(v);
+        await db.collection("players").doc(d.id).delete();
+      }
+    }
+  } catch(e) {}
+  try {
+    lib.unsub = db.collection("data/users/" + uid).onSnapshot(snap => {
+      if (!snap.metadata.fromCache) clearTimeout(timer);
+      if (done && lib.mode !== "db") return;
+      done = true; lib.db = db; lib.mode = "db";
+      lib.items.clear();
+      snap.docs.forEach(d => { const v = d.data(); if (v && v.name) lib.items.set(d.id, {id: d.id, name: v.name, photo: v.photo, note: v.note || "", updatedAt: v.updatedAt}); });
+      renderLib();
+    }, err => { clearTimeout(timer); if (lib.mode !== "db") fallback(); else { libStatus.textContent = "接続が切れました"; } });
+  } catch(e) { clearTimeout(timer); fallback(); }
+})();
+renderLib();
+
+// ---------- buttons ----------
+document.getElementById("btnResetPos").onclick = () => { state.players.forEach(p => p.off = null); draw(); persist(); toast("配置をリセットしました"); };
+const clearDlgConfirm = { armed:false, t:null };
+document.getElementById("btnClear").onclick = (e) => {
+  const b = e.currentTarget;
+  if (!clearDlgConfirm.armed){ clearDlgConfirm.armed = true; b.textContent = "もう一度押すと全消去"; clearTimeout(clearDlgConfirm.t);
+    clearDlgConfirm.t = setTimeout(()=>{ clearDlgConfirm.armed=false; b.textContent="すべてクリア"; }, 3000); return; }
+  clearDlgConfirm.armed = false; b.textContent = "すべてクリア";
+  state = defaultState(); selected = -1; initFields(); renderList(); updateFmtBtns(); draw(); persist();
+};
+
+let downloads = null;
+(async () => { try { if (window.claude && window.claude.use) downloads = await window.claude.use("downloads"); } catch(e) {} })();
+
+document.getElementById("btnSave").onclick = async () => {
+  selected = -1; renderListSel(); draw(true);
+  const [ow, oh] = LAYOUT.out;
+  const fname = `lineup_${state.formation.replace("◆","diamond")}_${ow}x${oh}.png`;
+  let src = cv;
+  if (ow !== W || oh !== H){
+    // downscale in two steps for sharp results
+    const mid = document.createElement("canvas"); mid.width = Math.round(W*.75); mid.height = Math.round(H*.75);
+    const m = mid.getContext("2d"); m.imageSmoothingQuality = "high"; m.drawImage(cv, 0, 0, mid.width, mid.height);
+    const oc = document.createElement("canvas"); oc.width = ow; oc.height = oh;
+    const o = oc.getContext("2d"); o.imageSmoothingQuality = "high"; o.drawImage(mid, 0, 0, ow, oh);
+    src = oc;
+  }
+  const blob = await new Promise(r => src.toBlob(r, "image/png"));
+  draw();
+  if (downloads){
+    try { await downloads.save({filename: fname, data: blob}); toast("保存しました"); return; }
+    catch(err){ if (err && err.code === "declined") return; }
+  }
+  // standalone (e.g. GitHub Pages): normal browser download
+  const inClaude = !!(window.claude && window.claude.use);
+  if (!inClaude){
+    try {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast("保存しました"); return;
+    } catch(e) {}
+  }
+  // fallback: show the image so it can be saved by right-click / long-press
+  try {
+    const url = URL.createObjectURL(blob);
+    document.getElementById("previewImg").src = url;
+    document.getElementById("prevModal").classList.add("open");
+  } catch(e) { toast("保存できませんでした"); }
+};
+document.getElementById("prevClose").onclick = () => document.getElementById("prevModal").classList.remove("open");
+
+function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(()=>t.classList.remove("show"), 1800); }
+
+function initFields(){
+  ["tBrand:brand","tSystem:system","tInfo:info","tMatch:match"].forEach(s => { const [id,k] = s.split(":"); document.getElementById(id).value = state[k] || ""; });
+  ["bg","card","grass","accent","sub"].forEach(k => document.getElementById("c"+k[0].toUpperCase()+k.slice(1)).value = state.colors[k]);
+  syncLogoUI();
+  if (typeof themeSel !== "undefined") themeSel.value = state.theme;
+  const bs = document.getElementById("bgStyle"); if (bs) bs.value = state.bgStyle || "hex";
+  const ac = document.getElementById("showAccent"); if (ac) ac.checked = !!state.showAccent;
+  const sz = document.getElementById("sizeSel"); if (sz) sz.value = state.size || "wide";
+  if (typeof syncCardScale === "function") syncCardScale();
+}
+
+document.addEventListener("keydown", e => { if (e.key === "Escape"){ if (crop) closeCrop(); document.getElementById("prevModal").classList.remove("open"); } });
+
+syncLogoUI(); updateFmtBtns(); renderList(); draw();
+if (document.fonts) document.fonts.ready.then(() => draw());
+setTimeout(draw, 800);
+})();
+</script>
+</body>
+</html>
